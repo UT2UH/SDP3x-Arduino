@@ -1,6 +1,7 @@
 /*
-    SDP3x.cpp - Library for the SDP31 and SDP32 digital pressure sensors produced by Sensirion.
-    Created by Bryan T. Meyers, February 14, 2017.
+    SDP3x.cpp - Library for the SDP31, SDP32, SDP8xx digital pressure sensors produced by Sensirion.
+    Created by Bryan T. Meyers, February 14, 2017. 
+    Modified by UT2UH on May 9th, 2021 to add SDP8xx sensors.
 
     Copyright (c) 2018 Bryan T. Meyers
 
@@ -20,21 +21,19 @@
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include "SDP3x.h"
-
-using namespace SDP3X;
+#include "SDPSensors.h"
 
 /*  Send a write command
 
     @param cmd - the two byte command to send
     @returns true iff all ACKs received
 */
-bool SDP3x::writeCommand(const uint8_t cmd[2]) {
+bool SDPSensor::writeCommand(const uint8_t cmd[2]) {
     size_t written;
     uint8_t status;
-    Wire.beginTransmission(this->addr);
-    written = Wire.write(cmd, 2);
-    status  = Wire.endTransmission();
+    this->port->beginTransmission(this->addr);
+    written = this->port->write(cmd, 2);
+    status  = this->port->endTransmission();
     return (status == 0) && (written == 2);
 }
 
@@ -43,7 +42,7 @@ bool SDP3x::writeCommand(const uint8_t cmd[2]) {
     @param words - the number of words to read
     @returns true iff all words read and CRC passed
 */
-bool SDP3x::readData(uint8_t words) {
+bool SDPSensor::readData(uint8_t words) {
     size_t read;
     uint8_t crc = 0xFF;
     uint8_t *next;
@@ -53,7 +52,7 @@ bool SDP3x::readData(uint8_t words) {
         *next = 0;
     }
     // Each word is two bytes plus a CRC byte, ergo 3 bytes per word
-    read = Wire.requestFrom(this->addr, (uint8_t)(words * 3));
+    read = this->port->requestFrom(this->addr, (uint8_t)(words * 3));
 
     /*  We should have read the requested number of bytes.
         If not, we need to clear the bytes read anyways.
@@ -69,7 +68,7 @@ bool SDP3x::readData(uint8_t words) {
     next = this->buffer;
     for (; read > 0; read--) {
         // Read next available byte
-        *next = Wire.read();
+        *next = this->port->read();
         // Every third byte
         if ((read % 3) == 1) {
             // Check CRC byte
@@ -91,30 +90,57 @@ bool SDP3x::readData(uint8_t words) {
     @param comp - the Temperature Compensation Mode (Mass Flow or Differential Pressure)
     @returns a new SDP3X as configured
 */
-SDP3x::SDP3x(const uint8_t addr, TempCompensation comp) {
-    this->addr = addr;
+SDPSensor::SDPSensor(const uint8_t addr, const TempCompensation comp, TwoWire &wirePort) {
+    this->port = &wirePort;
     this->comp = comp;
+    this->addr = addr;
 }
 
 /*  Finish Initializing the sensor object
 
-    @returns true, iff everything went correctly
+    @returns sensor pressure range iff everything went correctly, or false iff not found
 */
-bool SDP3x::begin() {
+PressureRange SDPSensor::begin() {
     uint32_t modelNumber;
     if (!readProductID(&modelNumber, NULL)) {
-        return false;
+        return SDP_NA;
     }
     switch (modelNumber) {
-    case SDP31_PID:
-        this->number = SDP31;
-        return true;
-    case SDP32_PID:
-        this->number = SDP32;
-        return true;
-    default:
-        /* do nothing for now */
-        return false;
+        case SDP31_PID:
+            this->number = SDP31_500;
+            this->scale = DiffScale_500Pa;
+            return SDP_500;
+        case SDP32_PID:
+            this->number = SDP32_125;
+            this->scale = DiffScale_125Pa;
+            return SDP_125;
+        case SDP800_500_PID:
+            this->number = SDP800_500;
+            this->scale = DiffScale_500Pa;
+            return SDP_500;
+        case SDP810_500_PID:
+            this->number = SDP810_500;
+            this->scale = DiffScale_500Pa;
+            return SDP_500;
+        case SDP801_500_PID:
+            this->number = SDP801_500;
+            this->scale = DiffScale_500Pa;
+            return SDP_500;
+        case SDP811_500_PID:
+            this->number = SDP811_500;
+            this->scale = DiffScale_500Pa;
+            return SDP_500;
+        case SDP800_125_PID:
+            this->number = SDP800_125;
+            this->scale = DiffScale_125Pa;
+            return SDP_125;
+        case SDP810_125_PID:
+            this->number = SDP810_125;
+            this->scale = DiffScale_125Pa;
+            return SDP_125;
+        default:
+            /* do nothing for now */
+            return SDP_NA;
     }
 }
 
@@ -123,7 +149,7 @@ bool SDP3x::begin() {
     @param averaging - average samples until read occurs, otherwise read last value only
     @returns true, iff everything went correctly
 */
-bool SDP3x::startContinuous(bool averaging) {
+bool SDPSensor::startContinuous(bool averaging) {
     switch (this->comp) {
     case MassFlow:
         if (averaging) {
@@ -147,7 +173,7 @@ bool SDP3x::startContinuous(bool averaging) {
     This may be useful to conserve power when sampling all the time is no longer necessary.
     @returns true, iff everything went correctly
 */
-bool SDP3x::stopContinuous() {
+bool SDPSensor::stopContinuous() {
     return writeCommand(StopCont);
 }
 
@@ -156,7 +182,7 @@ bool SDP3x::stopContinuous() {
     @param averaging - average samples until read occurs, otherwise read last value only
     @returns true, iff everything went correctly
 */
-bool SDP3x::triggerMeasurement(bool stretching) {
+bool SDPSensor::triggerMeasurement(bool stretching) {
     switch (this->comp) {
     case MassFlow:
         if (stretching) {
@@ -186,7 +212,7 @@ bool SDP3x::triggerMeasurement(bool stretching) {
     @returns the raw pressure reading (no scaling)
     @returns true, iff everything went correctly
 */
-bool SDP3x::readMeasurement(int16_t *pressure, int16_t *temp, int16_t *scale) {
+bool SDPSensor::readMeasurement(int16_t *pressure, int16_t *temp, int16_t *scale) {
     uint8_t words = 1;
     if (scale != NULL) {
         words = 3;
@@ -234,7 +260,7 @@ bool SDP3x::readMeasurement(int16_t *pressure, int16_t *temp, int16_t *scale) {
     @param serial  - if not null, a pointer to store the 64-bit manufacturer serial number
     @returns true, iff everything went correctly
 */
-bool SDP3x::readProductID(uint32_t *pid, uint64_t *serial) {
+bool SDPSensor::readProductID(uint32_t *pid, uint64_t *serial) {
     uint8_t words = 2;
     if (serial != NULL) {
         words = 6;
@@ -281,12 +307,12 @@ bool SDP3x::readProductID(uint32_t *pid, uint64_t *serial) {
     WARNING: This will reset all other I2C devices that support it.
     @returns true, iff everything went correctly
 */
-bool SDP3x::reset() {
+bool SDPSensor::reset() {
     size_t written = 0;
     uint8_t status;
-    Wire.beginTransmission(SoftReset[0]);
-    written = Wire.write(SoftReset[1]);
-    status  = Wire.endTransmission();
+    this->port->beginTransmission(SoftReset[0]);
+    written = this->port->write(SoftReset[1]);
+    status  = this->port->endTransmission();
     return (written == 1) && (status == 0);
 }
 
@@ -294,21 +320,14 @@ bool SDP3x::reset() {
 
     @returns scale in units of 1/Pa
 */
-uint8_t SDP3x::getPressureScale() {
-    switch (this->number) {
-    case SDP31:
-        return SDP31_DiffScale;
-    case SDP32:
-        return SDP32_DiffScale;
-    default:
-        return 1;
-    }
+uint8_t SDPSensor::getPressureScale() {
+    return this->scale;
 }
 
 /*  Get the Temperature Scale for this sensor
 
     @returns scale in units of 1/C
 */
-uint8_t SDP3x::getTemperatureScale() {
+uint8_t SDPSensor::getTemperatureScale() {
     return SDP3X_TempScale;
 }

@@ -23,6 +23,7 @@
 
 #include "SDPSensors.h"
 
+
 /*  Send a write command
 
     @param cmd - the two byte command to send
@@ -150,22 +151,28 @@ PressureRange SDPSensor::begin() {
     @returns true, iff everything went correctly
 */
 bool SDPSensor::startContinuous(bool averaging) {
+    bool success = false;
     switch (this->comp) {
     case MassFlow:
         if (averaging) {
-            return writeCommand(StartContMassFlowAvg);
+            success = writeCommand(StartContMassFlowAvg);
         } else {
-            return writeCommand(StartContMassFlow);
+            success = writeCommand(StartContMassFlow);
         }
+        break;
     case DiffPressure:
         if (averaging) {
-            return writeCommand(StartContDiffPressureAvg);
+            success = writeCommand(StartContDiffPressureAvg);
         } else {
-            return writeCommand(StartContDiffPressure);
+            success = writeCommand(StartContDiffPressure);
         }
+        break;
     default:
-        return false;
+        success = false;
+        break;
     }
+    delay(20);
+    return success;
 }
 
 /*  Disable continuous measurements
@@ -174,7 +181,9 @@ bool SDPSensor::startContinuous(bool averaging) {
     @returns true, iff everything went correctly
 */
 bool SDPSensor::stopContinuous() {
-    return writeCommand(StopCont);
+    bool success = writeCommand(StopCont);
+    delay(20);
+    return success;
 }
 
 /*  Start a one-shot reading
@@ -200,6 +209,27 @@ bool SDPSensor::triggerMeasurement(bool stretching) {
         return false;
     }
 }
+
+
+Model SDPSensor::getModel() {
+    return this->number;
+}
+
+
+bool SDPSensor::readPressure(int16_t *pressure) {
+    uint8_t words = 1;  // pressure is one word
+    if (!readData(words)) {
+        return false;
+    }
+
+    *pressure <<= 8;
+    *pressure |= (int16_t)this->buffer[0];
+    *pressure <<= 8;
+    *pressure |= (int16_t)this->buffer[1];
+
+    return true;
+}
+
 
 /*  Get a pending reading.
 
@@ -273,6 +303,7 @@ bool SDPSensor::readProductID(uint32_t *pid, uint64_t *serial) {
     if (!writeCommand(ReadInfo2)) {
         return false;
     }
+    delay(90);
     // Read back required data
     if (!readData(words)) {
         return false;

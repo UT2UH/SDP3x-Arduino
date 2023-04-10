@@ -150,6 +150,13 @@ class SDPSensor {
         */
         bool stopContinuous();
 
+        /*
+         * Get the sensor model.
+         *
+         * @returns the Model enum
+         */
+        Model getModel();
+
         /*  Start a one-shot reading.
 
             Clock-stretching is used to delay the a Read response to the Master when a new reading
@@ -160,6 +167,11 @@ class SDPSensor {
             @returns true, iff everything went correctly
         */
         bool triggerMeasurement(bool stretching);
+
+        /*  A handy function to read the differential pressure only.
+            Same as readMeasurement(pressure, NULL, NULL).
+        */
+        bool readPressure(int16_t *pressure);
 
         /*  Get a pending reading.
 

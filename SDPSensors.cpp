@@ -102,16 +102,22 @@ SDPSensor::SDPSensor(const uint8_t addr, const TempCompensation comp, TwoWire &w
     @returns sensor pressure range iff everything went correctly, or false iff not found
 */
 PressureRange SDPSensor::begin() {
+    /**
+     * Reset the sensor prior any I2C commands!
+    */
+    stopContinuous();
+
     uint32_t modelNumber;
     if (!readProductID(&modelNumber, NULL)) {
         return SDP_NA;
     }
-    switch (modelNumber) {
-        case SDP31_PID:
+    log_d("SDP model number: 0x%lX", modelNumber);
+    switch (modelNumber & 0xFFFFFF00) {
+        case SPD31_500_PID:
             this->number = SDP31_500;
             this->scale = DiffScale_500Pa;
             return SDP_500;
-        case SDP32_PID:
+        case SDP32_125_PID:
             this->number = SDP32_125;
             this->scale = DiffScale_125Pa;
             return SDP_125;

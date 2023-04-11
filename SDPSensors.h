@@ -74,19 +74,20 @@ typedef enum { MassFlow, DiffPressure } TempCompensation;
 */
 typedef enum { SDP_NA, SDP_125, SDP_250, SDP_500 } PressureRange;
 
+#define SPD31_500_PID  0x03010100
+#define SDP32_125_PID  0x03010200
+#define SDP800_500_PID 0x03020100
+#define SDP810_500_PID 0x03020A00
+#define SDP801_500_PID 0x03020400
+#define SDP811_500_PID 0x03020D00
+#define SDP800_125_PID 0x03020200
+#define SDP810_125_PID 0x03020B00
+
 /*  Model-Specific Parameters
 
     Pressure Units    - 1/Pa
     Temperature Units - 1/C
 */
-const uint32_t SDP31_PID      = 0x03010188;
-const uint32_t SDP32_PID      = 0x03010288;
-const uint32_t SDP800_500_PID = 0x03020101;
-const uint32_t SDP810_500_PID = 0x03020A01;
-const uint32_t SDP801_500_PID = 0x03020401;
-const uint32_t SDP811_500_PID = 0x03020D01;
-const uint32_t SDP800_125_PID = 0x03020201;
-const uint32_t SDP810_125_PID = 0x03020B01;
 const uint8_t DiffScale_500Pa = 60;
 const uint8_t DiffScale_125Pa = 240;
 const uint8_t SDP3X_TempScale = 200;

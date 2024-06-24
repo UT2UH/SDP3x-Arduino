@@ -15,7 +15,7 @@ Arduino library for for the SDP31 and SDP32 pressure sensors designed and manufa
 
 ### Option 1: Copy-Paste
 
-Just drop `SDP3x.h` and `SDP3x.cpp` into your own project, and off you go.
+Just drop `SDPSensors.h` and `SDPSensors.cpp` into your own project, and off you go.
 
 ### Option 2: Add ZIP as Library
 
@@ -32,11 +32,9 @@ Just drop `SDP3x.h` and `SDP3x.cpp` into your own project, and off you go.
 ### Initialization
 
 ``` C++
-#include <SDP3x.h>
+#include <SDPSensors.h>
 
-using namespace SDP3X;
-
-SDP3x sensor(Address1,MassFlow);
+SDP3X sensor = SDP3X(Address1);
 
 void setup() {
   Wire.begin();
@@ -47,14 +45,12 @@ void setup() {
 ### Continuous Mode
 
 ``` C++
-#include <SDP3x.h>
+#include <SDPSensors.h>
 
-using namespace SDP3X;
-
-SDP3x sensor(Address1,MassFlow);
+SDP8XX sensor = SDP8XX(Address5, MassFlow, Wire1);
 
 void setup() {
-  Wire.begin();
+  Wire1.begin();
   sensor.begin();
   sensor.startContinuous(false);
 }
@@ -74,35 +70,42 @@ void loop() {
 
 #### Constants
 
-While there are many public constants in this library, there are two sets that you actually need to worry about.
+While there are many public constants in this library, there are three sets that you actually need to worry about.
+
+**I2C port**
+
+`Wire` and/or `Wire1` are used to specify Arduino I2C port for the SDP3X and SDP8XX sensors.
 
 **Addresses**
 
-`Address1`, `Address2`, and `Address3` are used to specify the three possible I2C addresses for the SDP3X sensors. These are actually `0x21`, `0x22`, and `0x23` respectively, but have been made constants for ease of use.
+`Address1` - `Address6` are used to specify all possible I2C addresses for the SDP3X and SDP8XX sensors. These are actually `0x21`, `0x22`, `0x23` for SDP31/SDP32 and `0x25`, `0x26` for SDP8XX respectively, but have been made constants for ease of use.
 
 **Temperature Compensation**
 
-The SDP3X sensors support two different temperature compensation modes that you may choose according to your target application.
+The SDP3X/SDP8XX sensors support two different temperature compensation modes that you may choose according to your target application.
 
 1. `MassFlow` sets the compensation mode that is optimal for applications in which you are measuring the Mass Flow Rate of a substance.
 2. `DiffPressure` sets the compensation mode that is optimal for applications is which you are measuring Gauge pressure (accounts for atmospheric pressure).
 
-#### Constructor: SDP3x(const uint8_t addr, TempCompensation comp)
+#### Constructor: SDP3x(TempCompensation comp, const uint8_t addr, const TwoWire &port )
 
 This function creates a new SDP3x object and takes in the following attributes:
 
 | Parameter | Description                                        |
 | --------- | -------------------------------------------------- |
+| port      | the I2C port of the sensor (eg. Wire, Wire1)       |
 | addr      | the I2C address of the sensor (eg. Address1, 0x23) |
 | comp      | the Temperature Compensation Mode (ie. MassFlow)   |
 
-#### bool begin()
+#### PressureRange begin()
 
-This function must be called for each sensor. It communicates with the sensor to determine the model (SDP31 or SDP32) in order to provide the correct scaling factors.
+This function must be called for each sensor. It communicates with the sensor to determine the model in order to provide the correct scaling factors and check suitability of the sensor's pressure range for an application.
 
-| Returns | Description                                   |
-| ------- | --------------------------------------------- |
-| true    | iff the initialization completed successfully |
+| Returns | Description                                          |
+| ------- | ---------------------------------------------------- |
+| SDP_NA  | iff the initialization is not completed successfully |
+| SDP_125 | iff the the sensor pressure range is 125Pa           |
+| SDP_500 | iff the the sensor pressure range is 500Pa           |
 
 #### bool startContinuous(bool averaging)
 
